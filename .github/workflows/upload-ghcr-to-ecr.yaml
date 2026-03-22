@@ -1,0 +1,69 @@
+name: Upload To ECR
+
+on:
+  workflow_call:
+    secrets:
+      ACCOUNT_ID:
+        required: true
+    inputs:
+      GHCR_IMAGE:
+        required: true
+        type: string
+      GHCR_IMAGE_TAG:
+        required: true
+        type: string
+      ASSUME_ROLE:
+        required: true
+        type: string
+      AWS_REGION:
+        required: true
+        type: string
+      ECR_IMAGE_NAME:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+jobs:
+  upload-ghcr-ecr:
+    runs-on: ubuntu-latest
+    env:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull GHCR container image
+        run: |
+          docker pull ${{ inputs.GHCR_IMAGE }}:${{ inputs.GHCR_IMAGE_TAG }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ inputs.ASSUME_ROLE }}
+          aws-region: ${{ inputs.AWS_REGION }}
+
+      - name: Push image to ECR
+        run: |
+          aws ecr describe-repositories --repository-names ${{ inputs.ECR_IMAGE_NAME }} || \
+            aws ecr create-repository --repository-name ${{ inputs.ECR_IMAGE_NAME }}
+
+          docker login \
+            --username AWS \
+            --password $(aws ecr get-login-password --region ${{ inputs.AWS_REGION }}) \
+            $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com
+
+          docker tag ${{ inputs.GHCR_IMAGE }}:${{ inputs.GHCR_IMAGE_TAG }} \
+            $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_IMAGE_NAME }}:${{ inputs.GHCR_IMAGE_TAG }}
+
+          docker push $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_IMAGE_NAME }}:${{ inputs.GHCR_IMAGE_TAG }}

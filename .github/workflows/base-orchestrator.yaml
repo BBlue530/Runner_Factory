@@ -1,0 +1,61 @@
+name: Base Orchestrator Pipeline
+
+on:
+  push:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      github_runner_changed: ${{ steps.check_github_runner.outputs.github_runner_changed }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check github runner changed
+        id: check_github_runner
+        run: |
+          CHANGED=$(git diff --name-only HEAD^ HEAD | grep '^src' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "[+] Github runner not changed"
+            echo "github_runner_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "[+] Github runner changed"
+            echo "github_runner_changed=true" >> $GITHUB_OUTPUT
+          fi
+
+  backup-repo:
+    if: always()
+    uses: ./.github/workflows/backup-repo.yaml
+    secrets:
+      BACKUP_LAMBDA_FUNCTION_API_KEY: ${{ secrets.BACKUP_LAMBDA_FUNCTION_API_KEY }}
+      BACKUP_LAMBDA_FUNCTION_URL: ${{ secrets.BACKUP_LAMBDA_FUNCTION_URL }}
+
+  trigger-docker-build-github-runner-image:
+    needs: check-changes
+    if: ${{ needs.check-changes.outputs.github_runner_changed == 'true' }}
+    uses: ./.github/workflows/docker-builder.yaml
+    with:
+      WORK_DIR: "./src"
+      IMAGE_NAME: "ghcr.io/bblue530/github_runner_orchestrator"
+      WILDCARD_COMMAND: ""
+
+  upload-ghcr-ecr:
+    needs: trigger-docker-build-github-runner-image
+    if: ${{ needs.check-changes.outputs.github_runner_changed == 'true' }}
+    uses: ./.github/workflows/upload-ghcr-to-ecr.yaml
+    secrets:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+    with:
+      GHCR_IMAGE: "ghcr.io/bblue530/github_runner_orchestrator"
+      GHCR_IMAGE_TAG: "latest"
+      ASSUME_ROLE: "github-runner-image-upload-ecr-oidc-role"
+      AWS_REGION: "eu-north-1"
+      ECR_IMAGE_NAME: "github_runner_orchestrator"

@@ -1,0 +1,44 @@
+name: Backup Repo
+
+on:
+  workflow_call:
+    secrets:
+      BACKUP_LAMBDA_FUNCTION_API_KEY:
+        required: true
+      BACKUP_LAMBDA_FUNCTION_URL:
+        required: true
+
+jobs:
+  backup-repo:
+    runs-on: ubuntu-latest
+    env:
+      BACKUP_LAMBDA_FUNCTION_API_KEY: ${{ secrets.BACKUP_LAMBDA_FUNCTION_API_KEY }}
+      BACKUP_LAMBDA_FUNCTION_URL: ${{ secrets.BACKUP_LAMBDA_FUNCTION_URL }}
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Backup Repo
+        working-directory: ${{ github.workspace }}
+        run: |
+          response_and_status=$(curl --connect-timeout 60 --max-time 300 -s -w "\n%{http_code}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "api_key": "'"$BACKUP_LAMBDA_FUNCTION_API_KEY"'",
+              "repo_url": "'"$REPO_URL"'"
+            }' \
+            "$BACKUP_LAMBDA_FUNCTION_URL")
+
+          http_status=$(echo "$response_and_status" | tail -n1)
+          response_body=$(echo "$response_and_status" | sed '$d')
+
+          if [[ "$http_status" -lt 200 || "$http_status" -ge 300 ]]; then
+            echo "[!] Backup failed!"
+            echo "${response_body}" | jq .
+            exit 1
+          fi
+          
+          echo "[+] Backup finished"
+          echo "${response_body}" | jq .
