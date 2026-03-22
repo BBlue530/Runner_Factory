@@ -10,7 +10,7 @@ on:
 
 jobs:
   backup-repo:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       BACKUP_LAMBDA_FUNCTION_API_KEY: ${{ secrets.BACKUP_LAMBDA_FUNCTION_API_KEY }}
       BACKUP_LAMBDA_FUNCTION_URL: ${{ secrets.BACKUP_LAMBDA_FUNCTION_URL }}

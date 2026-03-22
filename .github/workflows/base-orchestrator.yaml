@@ -11,7 +11,7 @@ permissions:
 jobs:
 
   check-changes:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       github_runner_changed: ${{ steps.check_github_runner.outputs.github_runner_changed }}
     steps:
@@ -43,7 +43,7 @@ jobs:
     if: ${{ needs.check-changes.outputs.github_runner_changed == 'true' }}
     uses: ./.github/workflows/docker-builder.yaml
     with:
-      WORK_DIR: "./src"
+      WORK_DIR: "./"
       IMAGE_NAME: "ghcr.io/bblue530/github_runner_orchestrator"
       WILDCARD_COMMAND: ""
 
@@ -56,6 +56,6 @@ jobs:
     with:
       GHCR_IMAGE: "ghcr.io/bblue530/github_runner_orchestrator"
       GHCR_IMAGE_TAG: "latest"
-      ASSUME_ROLE: "github-runner-image-upload-ecr-oidc-role"
+      ASSUME_ROLE: "github-runner-orchestrator-upload-ecr-oidc-role"
       AWS_REGION: "eu-north-1"
       ECR_IMAGE_NAME: "github_runner_orchestrator"

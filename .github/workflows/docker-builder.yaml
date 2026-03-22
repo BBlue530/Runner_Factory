@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       WORK_DIR: ${{ inputs.WORK_DIR }}
       IMAGE_NAME: ${{ inputs.IMAGE_NAME }}

@@ -1,6 +1,7 @@
 import requests
 from secret_manager import read_pat_secret
 
+MACHINE_IMAGE = None
 
 def get_runner_token(secrets_client, githb_repo_full_name):
     pat = read_pat_secret(secrets_client)
@@ -17,13 +18,19 @@ def get_runner_token(secrets_client, githb_repo_full_name):
 
 
 def get_latest_machine_image(ec2_client):
+    global MACHINE_IMAGE
+
+    if MACHINE_IMAGE is not None:
+        print("[+] MACHINE_IMAGE already present")
+        return MACHINE_IMAGE
+    
+    print("[+] Calling for images")
     images = ec2_client.describe_images(
         Owners=["amazon"],
         Filters=[{"Name": "name", "Values": ["amzn2-ami-hvm-*-x86_64-gp2"]}]
     )["Images"]
-
-    return sorted(images, key=lambda x: x["CreationDate"], reverse=True)[0]["ImageId"]
-
+    MACHINE_IMAGE = sorted(images, key=lambda x: x["CreationDate"], reverse=True)[0]["ImageId"]
+    return MACHINE_IMAGE
 
 def get_subnet(ec2_client):
     return ec2_client.describe_subnets(
