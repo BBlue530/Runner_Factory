@@ -17,6 +17,7 @@ def create_jwt(app_id, priv_key):
     if isinstance(token, bytes):
         token = token.decode("utf-8")
 
+    print("[+] JWT created")
     return token
 
 def get_installation_token(jwt_token, installation_id):
@@ -30,6 +31,7 @@ def get_installation_token(jwt_token, installation_id):
     r = requests.post(url, headers=headers)
     r.raise_for_status()
 
+    print("[+] Installation token created")
     return r.json()["token"]
 
 def get_runner_token(repo_full_name, installation_token):
@@ -43,6 +45,7 @@ def get_runner_token(repo_full_name, installation_token):
     r = requests.post(url, headers=headers)
     r.raise_for_status()
 
+    print("[+] Runner token created")
     return r.json()["token"]
 
 def fetch_runner_token(secrets_client, repo_full_name):

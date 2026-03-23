@@ -15,9 +15,11 @@ ec2_client = boto3.client('ec2')
 secrets_client = boto3.client('secretsmanager')
 
 def lambda_handler(event, context):
-    headers = event.get("headers") or {}
+    print("[+] Lambda started")
+    print(event.get("headers"))
 
-    signature_header = headers.get("X-Hub-Signature-256")
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    signature_header = headers.get("x-hub-signature-256")
 
     raw_body = event.get("body") or ""
 
@@ -27,17 +29,24 @@ def lambda_handler(event, context):
     else:
         raw_payload = raw_body.encode("utf-8")
         parsed_body = json.loads(raw_body)
+    
+    print(f"[+] Parsed body: {parsed_body}")
 
     if not verify_github_signature(secrets_client, raw_payload, signature_header):
+        print("[!] Invalid signature")
         return {"statusCode": 401, "body": "Invalid signature"}
 
     if parsed_body.get("action") != "queued":
+        print("[+] Action is not queued")
         return {"statusCode": 200, "body": "Ignored"}
 
     labels = parsed_body.get("workflow_job", {}).get("labels", [])
 
     if "self-hosted" not in labels:
+        print("[+] Not self hosted job")
         return {"statusCode": 200, "body": "Not a self-hosted job"}
+    
+    print("[+] Job is self hosted and queued")
 
     githb_repo_full_name = parsed_body["repository"]["full_name"]
 

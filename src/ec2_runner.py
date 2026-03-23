@@ -60,4 +60,5 @@ def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_toke
         }]
     )
 
+    print("[+] Runner created")
     return response["Instances"][0]["InstanceId"]

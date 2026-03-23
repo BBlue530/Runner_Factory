@@ -4,9 +4,11 @@ from secret_manager import read_hmac_secret
 
 def verify_github_signature(secrets_client, raw_payload, signature_header):
     if not signature_header:
+        print("[!] Signature header missing")
         return False
 
     if not signature_header.startswith("sha256="):
+        print("[!] Signature header did not start with 'sha256='")
         return False
 
     signature = signature_header.split("=", 1)[1]
