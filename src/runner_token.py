@@ -12,6 +12,9 @@ def create_jwt(app_id, priv_key):
         "iss": app_id
     }
 
+    priv_key = priv_key.replace("\\n", "\n")
+    print(priv_key[:100])
+
     token = jwt.encode(payload, priv_key, algorithm="RS256")
 
     if isinstance(token, bytes):
