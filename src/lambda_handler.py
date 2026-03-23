@@ -16,7 +16,6 @@ secrets_client = boto3.client('secretsmanager')
 
 def lambda_handler(event, context):
     print("[+] Lambda started")
-    print(event.get("headers"))
 
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     signature_header = headers.get("x-hub-signature-256")
