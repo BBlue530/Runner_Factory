@@ -13,7 +13,6 @@ def create_jwt(app_id, priv_key):
     }
 
     priv_key = priv_key.replace("\\n", "\n")
-    print(priv_key[:100])
 
     token = jwt.encode(payload, priv_key, algorithm="RS256")
 

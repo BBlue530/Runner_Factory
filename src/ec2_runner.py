@@ -36,7 +36,7 @@ def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_toke
     trap 'shutdown -h now' EXIT
     """)
 
-    run_id = parsed_body["workflow_job"]["run_id"]
+    run_id = str(parsed_body["workflow_job"]["run_id"])
 
     response = ec2_client.run_instances(
         MinCount=1,
@@ -55,7 +55,7 @@ def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_toke
                 {"Key": "Role", "Value": "github-runner"},
                 {"Key": "Repo", "Value": githb_repo_full_name},
                 {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
-                {"Key": "RunID", "Value": run_id}
+                {"Key": "RunID", "Value": str(run_id)}
             ]
         }]
     )
