@@ -1,20 +1,6 @@
-import requests
-from secret_manager import read_pat_secret
+from runner_token import fetch_runner_token
 
 MACHINE_IMAGE = None
-
-def get_runner_token(secrets_client, githb_repo_full_name):
-    pat = read_pat_secret(secrets_client)
-
-    url = f"https://api.github.com/repos/{githb_repo_full_name}/actions/runners/registration-token"
-    headers = {
-        "Authorization": f"Bearer {pat}",
-        "Accept": "application/vnd.github+json"
-    }
-
-    r = requests.post(url, headers=headers)
-    r.raise_for_status()
-    return r.json()["token"]
 
 
 def get_latest_machine_image(ec2_client):
@@ -44,7 +30,7 @@ def get_security_group(ec2_client):
     )["SecurityGroups"][0]["GroupId"]
 
 def get_ec2_config(ec2_client, secrets_client, githb_repo_full_name):
-    runner_token = get_runner_token(secrets_client, githb_repo_full_name)
+    runner_token = fetch_runner_token(secrets_client, githb_repo_full_name)
     machine_image = get_latest_machine_image(ec2_client)
     subnet = get_subnet(ec2_client)
     security_group = get_security_group(ec2_client)
