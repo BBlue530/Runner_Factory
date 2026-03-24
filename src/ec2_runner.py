@@ -8,10 +8,14 @@ def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_toke
     echo "Starting bootstrap..."
 
     yum update -y
-    yum install -y docker aws-cli
 
+    yum install -y docker aws-cli
     systemctl enable docker
     systemctl start docker
+
+    yum install -y amazon-ssm-agent
+    systemctl enable amazon-ssm-agent
+    systemctl start amazon-ssm-agent
 
     until docker info >/dev/null 2>&1; do
     echo "Waiting for Docker..."
