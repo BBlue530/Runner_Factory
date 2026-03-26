@@ -35,6 +35,8 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     echo "Starting GitHub runner container..."
     docker run --rm \
     --name github-runner \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    --group-add $(stat -c '%g' /var/run/docker.sock) \
     -e GITHUB_URL="https://github.com/{github_repo_full_name}" \
     -e RUNNER_TOKEN="{runner_token}" \
     {os.environ.get("ECR_IMAGE")}
@@ -43,7 +45,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     shutdown -h now
     """)
 
-    run_id = str(parsed_body["workflow_job"]["run_id"])
+    job_id = str(parsed_body["workflow_job"]["id"])
 
     response = ec2_client.run_instances(
         MinCount=1,
@@ -55,7 +57,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
         SecurityGroupIds=[security_group],
         IamInstanceProfile={"Name": os.environ.get("RUNNER_ROLE")},
         UserData=runner_bootstrap,
-        ClientToken=str(run_id),
+        ClientToken=str(job_id),
         InstanceInitiatedShutdownBehavior="terminate",
         TagSpecifications=[{
             "ResourceType": "instance",
@@ -63,7 +65,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
                 {"Key": "Role", "Value": "github-runner"},
                 {"Key": "Repo", "Value": github_repo_full_name},
                 {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
-                {"Key": "RunID", "Value": str(run_id)},
+                {"Key": "JobID", "Value": str(job_id)},
                 {"Key": "CreatedAt", "Value": str(int(time.time()))},
                 {"Key": "TTLSeconds", "Value": "3600"}
             ]
