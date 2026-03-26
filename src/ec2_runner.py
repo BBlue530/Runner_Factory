@@ -1,9 +1,12 @@
 import os
 import textwrap
+import time
 
-def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_token, machine_image, subnet, security_group):
+def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_token, machine_image, subnet, security_group):
     runner_bootstrap = textwrap.dedent(f"""#!/bin/bash
     set -euo pipefail
+
+    (sleep 3600 && shutdown -h now) &
 
     echo "Starting bootstrap..."
 
@@ -32,12 +35,12 @@ def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_toke
     echo "Starting GitHub runner container..."
     docker run --rm \
     --name github-runner \
-    -e GITHUB_URL="https://github.com/{githb_repo_full_name}" \
+    -e GITHUB_URL="https://github.com/{github_repo_full_name}" \
     -e RUNNER_TOKEN="{runner_token}" \
     {os.environ.get("ECR_IMAGE")}
 
     echo "Runner finished, shutting down..."
-    trap 'shutdown -h now' EXIT
+    shutdown -h now
     """)
 
     run_id = str(parsed_body["workflow_job"]["run_id"])
@@ -53,16 +56,63 @@ def create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_toke
         IamInstanceProfile={"Name": os.environ.get("RUNNER_ROLE")},
         UserData=runner_bootstrap,
         ClientToken=str(run_id),
+        InstanceInitiatedShutdownBehavior="terminate",
         TagSpecifications=[{
             "ResourceType": "instance",
             "Tags": [
                 {"Key": "Role", "Value": "github-runner"},
-                {"Key": "Repo", "Value": githb_repo_full_name},
+                {"Key": "Repo", "Value": github_repo_full_name},
                 {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
-                {"Key": "RunID", "Value": str(run_id)}
+                {"Key": "RunID", "Value": str(run_id)},
+                {"Key": "CreatedAt", "Value": str(int(time.time()))},
+                {"Key": "TTLSeconds", "Value": "3600"}
             ]
         }]
     )
 
     print("[+] Runner created")
+    purge_runners(ec2_client)
     return response["Instances"][0]["InstanceId"]
+
+def purge_runners(ec2_client):
+    print("[+] Purging old runners...")
+
+    response = ec2_client.describe_instances(
+        Filters=[
+            {"Name": "tag:Role", "Values": ["github-runner"]},
+            {"Name": "instance-state-name", "Values": ["pending", "running", "stopping", "stopped"]}
+        ]
+    )
+
+    instances_to_terminate = []
+    now = int(time.time())
+
+    for reservation in response.get("Reservations", []):
+        for instance in reservation.get("Instances", []):
+            instance_id = instance["InstanceId"]
+
+            tags = {t["Key"]: t["Value"] for t in instance.get("Tags", [])}
+
+            created_at = tags.get("CreatedAt")
+            ttl = tags.get("TTLSeconds")
+
+            try:
+                if created_at and ttl:
+                    expiry = int(created_at) + int(ttl)
+                else:
+                    launch_time = instance["LaunchTime"].timestamp()
+                    expiry = int(launch_time) + 3600
+            except Exception:
+                print(f"[!] Bad tags on {instance_id}, terminating as fallback")
+                instances_to_terminate.append(instance_id)
+                continue
+
+            if now > expiry:
+                print(f"[+] Instance expired: {instance_id}")
+                instances_to_terminate.append(instance_id)
+
+    if instances_to_terminate:
+        print(f"[+] Terminating: {instances_to_terminate}")
+        ec2_client.terminate_instances(InstanceIds=instances_to_terminate)
+    else:
+        print("[+] No instances to terminate")
