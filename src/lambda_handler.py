@@ -58,6 +58,8 @@ def lambda_handler(event, context):
         print(f"[!] Runner cap reached: {current_runners}/{MAX_RUNNERS}")
         return {"statusCode": 429, "body": "Runner capacity reached"}
     
+    print(f"[+] Runner cap: {current_runners}/{MAX_RUNNERS}")
+    
     githb_repo_full_name = parsed_body["repository"]["full_name"]
 
     runner_token, machine_image, subnet, security_group = get_ec2_config(ec2_client, secrets_client, githb_repo_full_name)

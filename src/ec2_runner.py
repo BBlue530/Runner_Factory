@@ -65,6 +65,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
 
     docker ps -a
     docker logs github-runner
+    docker exec github-runner ./config.sh remove --unattended --token "{runner_token}"
     shutdown -h now
     """)
 
