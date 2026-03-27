@@ -141,3 +141,13 @@ def purge_runners(ec2_client):
         ec2_client.terminate_instances(InstanceIds=instances_to_terminate)
     else:
         print("[+] No instances to terminate")
+
+def get_active_runner_count(ec2_client):
+    response = ec2_client.describe_instances(
+        Filters=[
+            {"Name": "tag:Role", "Values": [os.environ.get("RUNNER_ROLE")]},
+            {"Name": "instance-state-name", "Values": ["pending", "running"]}
+        ]
+    )
+
+    return sum(len(r["Instances"]) for r in response["Reservations"])

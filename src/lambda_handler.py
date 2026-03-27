@@ -1,8 +1,9 @@
 import boto3
 import json
 import base64
+import os
 from ec2_config import get_ec2_config
-from ec2_runner import create_ec2_runner, purge_runners
+from ec2_runner import create_ec2_runner, purge_runners, get_active_runner_count
 from verify_signatures import verify_github_signature
 
 # Env vars used:
@@ -49,6 +50,14 @@ def lambda_handler(event, context):
     
     print("[+] Job is self hosted and queued")
 
+    MAX_RUNNERS = int(os.environ.get("MAX_RUNNERS", "10"))
+
+    current_runners = get_active_runner_count(ec2_client)
+
+    if current_runners >= MAX_RUNNERS:
+        print(f"[!] Runner cap reached: {current_runners}/{MAX_RUNNERS}")
+        return {"statusCode": 429, "body": "Runner capacity reached"}
+    
     githb_repo_full_name = parsed_body["repository"]["full_name"]
 
     runner_token, machine_image, subnet, security_group = get_ec2_config(ec2_client, secrets_client, githb_repo_full_name)
