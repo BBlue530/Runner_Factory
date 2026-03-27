@@ -2,7 +2,7 @@ import boto3
 import json
 import base64
 from ec2_config import get_ec2_config
-from ec2_runner import create_ec2_runner
+from ec2_runner import create_ec2_runner, purge_runners
 from verify_signatures import verify_github_signature
 
 # Env vars used:
@@ -34,6 +34,8 @@ def lambda_handler(event, context):
     if not verify_github_signature(secrets_client, raw_payload, signature_header):
         print("[!] Invalid signature")
         return {"statusCode": 401, "body": "Invalid signature"}
+    
+    purge_runners(ec2_client)
 
     if parsed_body.get("action") != "queued":
         print("[+] Action is not queued")

@@ -85,10 +85,11 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
         TagSpecifications=[{
             "ResourceType": "instance",
             "Tags": [
-                {"Key": "Role", "Value": "github-runner"},
+                {"Key": "Name", "Value": f"github-runner-{run_id}"},
+                {"Key": "Role", "Value": os.environ.get("RUNNER_ROLE")},
                 {"Key": "Repo", "Value": github_repo_full_name},
                 {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
-                {"Key": "JobID", "Value": str(run_id)},
+                {"Key": "RunID", "Value": str(run_id)},
                 {"Key": "CreatedAt", "Value": str(int(time.time()))},
                 {"Key": "TTLSeconds", "Value": "3600"}
             ]
@@ -96,7 +97,6 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     )
 
     print("[+] Runner created")
-    purge_runners(ec2_client)
     return response["Instances"][0]["InstanceId"]
 
 def purge_runners(ec2_client):
@@ -104,7 +104,7 @@ def purge_runners(ec2_client):
 
     response = ec2_client.describe_instances(
         Filters=[
-            {"Name": "tag:Role", "Values": ["github-runner"]},
+            {"Name": "tag:Role", "Values": [os.environ.get("RUNNER_ROLE")]},
             {"Name": "instance-state-name", "Values": ["pending", "running", "stopping", "stopped"]}
         ]
     )
