@@ -6,6 +6,10 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     runner_bootstrap = textwrap.dedent(f"""#!/bin/bash
     set -euo pipefail
 
+    IDLE_TIMEOUT=300
+    CHECK_INTERVAL=30
+    idle_time=0
+
     (sleep 3600 && shutdown -h now) &
 
     echo "Starting bootstrap..."
@@ -33,7 +37,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     docker pull {os.environ.get("ECR_IMAGE")}
 
     echo "Starting GitHub runner container..."
-    docker run --rm \
+    docker run -d \
     --name github-runner \
     -v /var/run/docker.sock:/var/run/docker.sock \
     --group-add $(stat -c '%g' /var/run/docker.sock) \
@@ -41,11 +45,30 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     -e RUNNER_TOKEN="{runner_token}" \
     {os.environ.get("ECR_IMAGE")}
 
-    echo "Runner finished, shutting down..."
+    echo "Monitoring runner..."
+    while true; do
+        if docker exec github-runner ps -eo cmd | grep -q "Runner.Worker"; then
+            echo "Runner is BUSY"
+            idle_time=0
+        else
+            echo "Runner is IDLE"
+            idle_time=$((idle_time + CHECK_INTERVAL))
+        fi
+
+        if [ "$idle_time" -ge "$IDLE_TIMEOUT" ]; then
+            echo "Idle timeout reached, shutting down..."
+            break
+        fi
+
+        sleep "$CHECK_INTERVAL"
+    done
+
+    docker ps -a
+    docker logs github-runner
     shutdown -h now
     """)
 
-    job_id = str(parsed_body["workflow_job"]["id"])
+    run_id = str(parsed_body["workflow_job"]["run_id"])
 
     response = ec2_client.run_instances(
         MinCount=1,
@@ -57,7 +80,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
         SecurityGroupIds=[security_group],
         IamInstanceProfile={"Name": os.environ.get("RUNNER_ROLE")},
         UserData=runner_bootstrap,
-        ClientToken=str(job_id),
+        ClientToken=str(run_id),
         InstanceInitiatedShutdownBehavior="terminate",
         TagSpecifications=[{
             "ResourceType": "instance",
@@ -65,7 +88,7 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
                 {"Key": "Role", "Value": "github-runner"},
                 {"Key": "Repo", "Value": github_repo_full_name},
                 {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
-                {"Key": "JobID", "Value": str(job_id)},
+                {"Key": "JobID", "Value": str(run_id)},
                 {"Key": "CreatedAt", "Value": str(int(time.time()))},
                 {"Key": "TTLSeconds", "Value": "3600"}
             ]
