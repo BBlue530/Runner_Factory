@@ -48,16 +48,16 @@ def lambda_handler(event, context):
         events = purge_runners(ec2_client, events)
 
         if parsed_body.get("action") != "queued":
-            print("[+] Action is not queued")
-            events[webhook_action] = f"[+] Action is not queued. Current action: {parsed_body.get('action')}"
+            print("[i] Action is not queued")
+            events[webhook_action] = f"[i] Action is not queued. Current action: {parsed_body.get('action')}"
             return {"statusCode": 200, "body": "Ignored"}
         events[webhook_action] = f"[+] Action is queued. Current action: {parsed_body.get('action')}"
 
         labels = parsed_body.get("workflow_job", {}).get("labels", [])
 
         if "self-hosted" not in labels:
-            print("[+] Not self hosted job")
-            events[webhook_label] = f"[+] Not self hosted job label. Current label: {labels}"
+            print("[i] Not self hosted job")
+            events[webhook_label] = f"[i] Not self hosted job label. Current label: {labels}"
             return {"statusCode": 200, "body": "Not a self-hosted job"}
         events[webhook_label] = f"[+] Self hosted job label. Current label: {labels}"
         print("[+] Job is self hosted and queued")

@@ -11,7 +11,7 @@ def get_latest_machine_image(ec2_client, events):
         if MACHINE_IMAGE is not None:
             msg = f"[+] MACHINE_IMAGE already present. {MACHINE_IMAGE}"
             print(msg)
-            events["machine_image_status"] = msg
+            events[machine_image_status] = msg
             return MACHINE_IMAGE, events
 
         print("[+] Calling for images")
@@ -25,24 +25,24 @@ def get_latest_machine_image(ec2_client, events):
 
         if not images:
             msg = "[!] No AMIs found matching filter"
-            events["machine_image_status"] = msg
+            events[machine_image_status] = msg
             raise ValueError(msg)
 
         MACHINE_IMAGE = sorted(images, key=lambda x: x["CreationDate"], reverse=True)[0]["ImageId"]
 
         msg = f"[+] MACHINE_IMAGE called. {MACHINE_IMAGE}"
-        events["machine_image_status"] = msg
+        events[machine_image_status] = msg
         return MACHINE_IMAGE, events
 
     except ClientError as e:
         msg = f"[!] AWS ClientError: {e}"
         print(msg)
-        events["machine_image_status"] = msg
+        events[machine_image_status] = msg
 
     except BotoCoreError as e:
         msg = f"[!] BotoCoreError: {e}"
         print(msg)
-        events["machine_image_status"] = msg
+        events[machine_image_status] = msg
 
     except ValueError as e:
         print(str(e))

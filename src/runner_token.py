@@ -66,19 +66,19 @@ def get_runner_token(repo_full_name, installation_token, events):
         r.raise_for_status()
 
         print("[+] Runner token created")
-        events["runner_token_status"] = "[+] Runner token created"
+        events[runner_token_status] = "[+] Runner token created"
 
         return r.json()["token"], events
 
     except requests.exceptions.HTTPError as e:
         error_msg = f"[!] HTTP error: {e} Response: {r.text}"
         print(error_msg)
-        events["runner_token_status"] = error_msg
+        events[runner_token_status] = error_msg
 
     except requests.exceptions.RequestException as e:
         error_msg = f"[!] Request failed: {e}"
         print(error_msg)
-        events["runner_token_status"] = error_msg
+        events[runner_token_status] = error_msg
 
     return None, events
 

@@ -9,11 +9,11 @@ def send_events_discord_webhook(events, secrets_client):
         return events.get(key, "—")
 
     if any("[!]" in str(v) for v in events.values()):
-        color = 16711680
-    elif any("[+]" in str(v) for v in events.values()):
-        color = 65280
+        color = 16711680 # red
+    elif any("[i]" in str(v) for v in events.values()):
+        color = 16776960 # yellow
     else:
-        color = 16776960
+        color = 65280 # green
 
     fields = [
         {"name": "Action", "value": get("webhook_action"), "inline": True},
