@@ -25,7 +25,7 @@ jobs:
           CHANGED=$(git diff --name-only HEAD^ HEAD | grep '^src' || true)
           if [ -z "$CHANGED" ]; then
             echo "[+] Github runner not changed"
-            echo "github_runner_changed=true" >> $GITHUB_OUTPUT
+            echo "github_runner_changed=false" >> $GITHUB_OUTPUT
           else
             echo "[+] Github runner changed"
             echo "github_runner_changed=true" >> $GITHUB_OUTPUT
