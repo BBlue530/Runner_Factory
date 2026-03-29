@@ -20,14 +20,14 @@ def read_secret_from_secret_manager(secrets_client, secret_key_name, secret_name
     try:
         secret_obj = json.loads(secret_payload)
     except json.JSONDecodeError:
-        events[secret_status] = f"[!] Secret is not valid JSON. Key: '{secret_key_name}'"
+        events[secret_status] = f"[!] Secret is not valid JSON. Key: [{secret_key_name}]"
         raise ValueError("Secret is not valid JSON")
 
     if secret_key_name not in secret_obj:
-        events[secret_status] = f"[!] Key: '{secret_key_name}' not found in secret '{secret_name}'"
-        raise KeyError(f"[!] Key: '{secret_key_name}' not found in secret '{secret_name}'")
+        events[secret_status] = f"[!] Key: [{secret_key_name}] not found in secret [{secret_name}]"
+        raise KeyError(f"[!] Key: [{secret_key_name}] not found in secret [{secret_name}]")
 
-    events[secret_status] = f"[+] Called for secret successfully. Key: '{secret_key_name}'"
+    events[secret_status] = f"[+] Called for secret successfully. Key: [{secret_key_name}]"
 
     return secret_obj[secret_key_name], events
 

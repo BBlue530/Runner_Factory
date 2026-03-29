@@ -1,7 +1,7 @@
 signature_verified = "signature_verified"
 signature = "signature"
 
-purge_old_runners = "purge_runners"
+purge_old_runners = "purge_old_runners"
 runner_cap = "runner_cap"
 
 webhook_action = "webhook_action"
@@ -22,3 +22,6 @@ subnet_status = "subnet_status"
 security_group_status = "security_group_status"
 
 create_runner_status = "create_runner_status"
+
+client_ip_status = "client_ip_status"
+ip_whitelist_status = "ip_whitelist_status"

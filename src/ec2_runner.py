@@ -71,16 +71,17 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     shutdown -h now
     """)
 
+    run_id = str(parsed_body["workflow_job"]["run_id"])
+
     runner = get_runner(ec2_client, run_id)
 
     if runner:
-        events[create_runner_status] = f"[i] Runner already exists. Run ID: {run_id}"
+        events[create_runner_status] = f"[i] Runner already exists. Run ID: [{run_id}]"
     else:
         try:
-            run_id = str(parsed_body["workflow_job"]["run_id"])
 
-            print(f"[+] Creating EC2 runner for run_id={run_id}")
-            print(f"[+] AMI={machine_image}, Subnet={subnet}, SG={security_group}")
+            print(f"[+] Creating EC2 runner for run_id=[{run_id}]")
+            print(f"[+] AMI=[{machine_image}], Subnet=[{subnet}], SG=[{security_group}]")
 
             response = ec2_client.run_instances(
                 MinCount=1,
@@ -165,17 +166,17 @@ def purge_runners(ec2_client, events):
                     launch_time = instance["LaunchTime"].timestamp()
                     expiry = int(launch_time) + 3600
             except Exception:
-                print(f"[!] Bad tags on {instance_id}, terminating as fallback")
+                print(f"[!] Bad tags on [{instance_id}], terminating as fallback")
                 instances_to_terminate.append(instance_id)
                 continue
 
             if now > expiry:
-                print(f"[+] Instance expired: {instance_id}")
+                print(f"[+] Instance expired: [{instance_id}]")
                 instances_to_terminate.append(instance_id)
 
     if instances_to_terminate:
-        print(f"[!] Terminating: {instances_to_terminate}")
-        events[purge_old_runners] = f"[!] Terminating: {instances_to_terminate}"
+        print(f"[!] Terminating: [{instances_to_terminate}]")
+        events[purge_old_runners] = f"[!] Terminating: [{instances_to_terminate}]"
         ec2_client.terminate_instances(InstanceIds=instances_to_terminate)
     else:
         print("[+] No instances to terminate")
