@@ -18,17 +18,17 @@ def lambda_handler(event, context):
         print("[+] Lambda started")
 
         client_ip = event.get("requestContext", {}).get("http", {}).get("sourceIp")
-        print(f"[+] Client ip: [{client_ip}]")
-        events[client_ip_status] = f"[+] Client ip: [{client_ip}]"
+        print(f"[+] Client ip: ({client_ip})")
+        events[client_ip_status] = f"[+] Client ip: ({client_ip})"
 
         if os.environ.get("ENABLE_IP_WHITELIST", "true").lower() == "true":
             if not verify_ip_whitelist(client_ip):
-                print(f"[!] Client ip not found in whitelist. Client ip: [{client_ip}]")
-                events[ip_whitelist_status] = f"[!] Client ip not found in whitelist. Client ip: [{client_ip}]"
+                print(f"[!] Client ip not found in whitelist. Client ip: ({client_ip})")
+                events[ip_whitelist_status] = f"[!] Client ip not found in whitelist. Client ip: ({client_ip})"
                 return {"statusCode": 403, "body": json.dumps({"error": "IP not allowed"})}
-            events[ip_whitelist_status] = f"[+] Client ip found in whitelist. Client ip: [{client_ip}]"
+            events[ip_whitelist_status] = f"[+] Client ip found in whitelist. Client ip: ({client_ip})"
         else:
-            events[ip_whitelist_status] = f"[i] Whitelist not enabled. Client ip: [{client_ip}]"
+            events[ip_whitelist_status] = f"[i] Whitelist not enabled. Client ip: ({client_ip})"
 
         headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
         signature_header = headers.get("x-hub-signature-256")
@@ -57,17 +57,17 @@ def lambda_handler(event, context):
 
         if parsed_body.get("action") != "queued":
             print("[i] Action is not queued")
-            events[webhook_action] = f"[i] Action is not queued. Current action: [{parsed_body.get('action')}]"
+            events[webhook_action] = f"[i] Action is not queued. Current action: ({parsed_body.get('action')})"
             return {"statusCode": 200, "body": "Ignored"}
-        events[webhook_action] = f"[+] Action is queued. Current action: [{parsed_body.get('action')}]"
+        events[webhook_action] = f"[+] Action is queued. Current action: ({parsed_body.get('action')})"
 
         labels = parsed_body.get("workflow_job", {}).get("labels", [])
 
         if "self-hosted" not in labels:
             print("[i] Not self hosted job")
-            events[webhook_label] = f"[i] Not self hosted job label. Current label: [{labels}]"
+            events[webhook_label] = f"[i] Not self hosted job label. Current label: ({labels})"
             return {"statusCode": 200, "body": "Not a self-hosted job"}
-        events[webhook_label] = f"[+] Self hosted job label. Current label: [{labels}]"
+        events[webhook_label] = f"[+] Self hosted job label. Current label: ({labels})"
         print("[+] Job is self hosted and queued")
 
         MAX_RUNNERS = int(os.environ.get("MAX_RUNNERS", "10"))
@@ -75,11 +75,11 @@ def lambda_handler(event, context):
         current_runners = get_active_runner_count(ec2_client)
 
         if current_runners >= MAX_RUNNERS:
-            print(f"[!] Runner cap reached: [{current_runners}/{MAX_RUNNERS}]")
-            events[runner_cap] = f"[!] Runner cap reached: [{current_runners}/{MAX_RUNNERS}]"
+            print(f"[!] Runner cap reached: ({current_runners}/{MAX_RUNNERS})")
+            events[runner_cap] = f"[!] Runner cap reached: ({current_runners}/{MAX_RUNNERS})"
             return {"statusCode": 429, "body": "Runner capacity reached"}
-        events[runner_cap] = f"[+] Runner cap: [{current_runners}/{MAX_RUNNERS}]"
-        print(f"[+] Runner cap: [{current_runners}/{MAX_RUNNERS}]")
+        events[runner_cap] = f"[+] Runner cap: ({current_runners}/{MAX_RUNNERS})"
+        print(f"[+] Runner cap: ({current_runners}/{MAX_RUNNERS})")
         
         githb_repo_full_name = parsed_body["repository"]["full_name"]
 
@@ -91,4 +91,4 @@ def lambda_handler(event, context):
         try:
             send_events_discord_webhook(events, secrets_client)
         except Exception as webhook_error:
-            print(f"[!] Failed to send Discord webhook: [{webhook_error}]")
+            print(f"[!] Failed to send Discord webhook: ({webhook_error})")

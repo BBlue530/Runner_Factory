@@ -42,12 +42,12 @@ def get_installation_token(jwt_token, installation_id, events):
         return r.json()["token"], events
 
     except requests.exceptions.HTTPError as e:
-        error_msg = f"[!] HTTP error: {e} Response: {r.text}"
+        error_msg = f"[!] HTTP error: ({e}) Response: ({r.text})"
         print(error_msg)
         events[inst_token_status] = error_msg
 
     except requests.exceptions.RequestException as e:
-        error_msg = f"[!] Request failed: {e}"
+        error_msg = f"[!] Request failed: ({e})"
         print(error_msg)
         events[inst_token_status] = error_msg
 
@@ -71,12 +71,12 @@ def get_runner_token(repo_full_name, installation_token, events):
         return r.json()["token"], events
 
     except requests.exceptions.HTTPError as e:
-        error_msg = f"[!] HTTP error: {e} Response: {r.text}"
+        error_msg = f"[!] HTTP error: ({e}) Response: ({r.text})"
         print(error_msg)
         events[runner_token_status] = error_msg
 
     except requests.exceptions.RequestException as e:
-        error_msg = f"[!] Request failed: {e}"
+        error_msg = f"[!] Request failed: ({e})"
         print(error_msg)
         events[runner_token_status] = error_msg
 

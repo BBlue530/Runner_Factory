@@ -76,12 +76,12 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     runner = get_runner(ec2_client, run_id)
 
     if runner:
-        events[create_runner_status] = f"[i] Runner already exists. Run ID: [{run_id}]"
+        events[create_runner_status] = f"[i] Runner already exists. Run ID: ({run_id})"
     else:
         try:
 
-            print(f"[+] Creating EC2 runner for run_id=[{run_id}]")
-            print(f"[+] AMI=[{machine_image}], Subnet=[{subnet}], SG=[{security_group}]")
+            print(f"[+] Creating EC2 runner for run_id=({run_id})")
+            print(f"[+] AMI=({machine_image}), Subnet=({subnet}), SG=({security_group})")
 
             response = ec2_client.run_instances(
                 MinCount=1,
@@ -113,24 +113,31 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
             instance_id = instance["InstanceId"]
             private_ip = instance.get("PrivateIpAddress")
 
-            msg = f"[+] Runner created: {instance_id} (IP: {private_ip}). Run ID: {run_id}"
+            msg = f"[+] Runner created: ({instance_id}) IP: ({private_ip}). Run ID: ({run_id})"
             print(msg)
             events[create_runner_status] = msg
 
             return instance_id, events
 
         except ClientError as e:
-            msg = f"[!] AWS ClientError (run_instances): {e}. Run ID: {run_id}"
-            print(msg)
-            events[create_runner_status] = msg
+            error_code = e.response.get("Error", {}).get("Code")
+
+            if error_code == "IdempotentParameterMismatch":
+                msg = f"[i] Idempotency conflict for run_id=({run_id}) (parameters differ)"
+                print(msg)
+                events[create_runner_status] = msg
+            else:
+                msg = f"[!] AWS ClientError ({error_code}): ({e}). Run ID: ({run_id})"
+                print(msg)
+                events[create_runner_status] = msg
 
         except BotoCoreError as e:
-            msg = f"[!] BotoCoreError: {e}"
+            msg = f"[!] BotoCoreError: ({e})"
             print(msg)
             events[create_runner_status] = msg
 
         except KeyError as e:
-            msg = f"[!] Malformed response or payload: missing {e}. Run ID: {run_id}"
+            msg = f"[!] Malformed response or payload: missing ({e}). Run ID: ({run_id})"
             print(msg)
             events[create_runner_status] = msg
 
@@ -166,17 +173,17 @@ def purge_runners(ec2_client, events):
                     launch_time = instance["LaunchTime"].timestamp()
                     expiry = int(launch_time) + 3600
             except Exception:
-                print(f"[!] Bad tags on [{instance_id}], terminating as fallback")
+                print(f"[!] Bad tags on ({instance_id}), terminating as fallback")
                 instances_to_terminate.append(instance_id)
                 continue
 
             if now > expiry:
-                print(f"[+] Instance expired: [{instance_id}]")
+                print(f"[+] Instance expired: ({instance_id})")
                 instances_to_terminate.append(instance_id)
 
     if instances_to_terminate:
-        print(f"[!] Terminating: [{instances_to_terminate}]")
-        events[purge_old_runners] = f"[!] Terminating: [{instances_to_terminate}]"
+        print(f"[!] Terminating: ({instances_to_terminate})")
+        events[purge_old_runners] = f"[!] Terminating: ({instances_to_terminate})"
         ec2_client.terminate_instances(InstanceIds=instances_to_terminate)
     else:
         print("[+] No instances to terminate")

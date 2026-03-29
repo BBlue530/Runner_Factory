@@ -7,7 +7,7 @@ def send_events_discord_webhook(events, secrets_client):
     discord_webhook, events = read_discord_webhook_secret(secrets_client, events)
 
     def get(key):
-        return events.get(key, "—")
+        return events.get(key, "-")
 
     if any("[!]" in str(v) for v in events.values()):
         color = 16711680 # red
@@ -51,7 +51,7 @@ def send_events_discord_webhook(events, secrets_client):
         {"name": "Runner Creation", "value": get(create_runner_status), "inline": False},
     ]
 
-    fields = [f for f in fields if f["value"] != "—"]
+    fields = [f for f in fields if f["value"] != "-"]
 
     payload = {
         "embeds": [{
@@ -73,7 +73,7 @@ def send_events_discord_webhook(events, secrets_client):
 
         if response.status_code not in [200, 204]:
             print("[!] Failed to send alert to webhook!")
-            print(f"[!] Status: [{response.status_code}], Body: [{response.text}]")
+            print(f"[!] Status: ({response.status_code}), Body: ({response.text})")
 
     except Exception as e:
-        print(f"[!] Webhook exception: [{e}]")
+        print(f"[!] Webhook exception: ({e})")

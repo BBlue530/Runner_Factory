@@ -9,7 +9,7 @@ def get_latest_machine_image(ec2_client, events):
 
     try:
         if MACHINE_IMAGE is not None:
-            msg = f"[+] MACHINE_IMAGE already present. {MACHINE_IMAGE}"
+            msg = f"[+] MACHINE_IMAGE already present. ({MACHINE_IMAGE})"
             print(msg)
             events[machine_image_status] = msg
             return MACHINE_IMAGE, events
@@ -30,17 +30,17 @@ def get_latest_machine_image(ec2_client, events):
 
         MACHINE_IMAGE = sorted(images, key=lambda x: x["CreationDate"], reverse=True)[0]["ImageId"]
 
-        msg = f"[+] MACHINE_IMAGE called. {MACHINE_IMAGE}"
+        msg = f"[+] MACHINE_IMAGE called. ({MACHINE_IMAGE})"
         events[machine_image_status] = msg
         return MACHINE_IMAGE, events
 
     except ClientError as e:
-        msg = f"[!] AWS ClientError: {e}"
+        msg = f"[!] AWS ClientError: ({e})"
         print(msg)
         events[machine_image_status] = msg
 
     except BotoCoreError as e:
-        msg = f"[!] BotoCoreError: {e}"
+        msg = f"[!] BotoCoreError: ({e})"
         print(msg)
         events[machine_image_status] = msg
 
@@ -60,19 +60,19 @@ def get_subnet(ec2_client, events):
 
         subnet_id = subnets[0]["SubnetId"]
 
-        msg = f"[+] Subnet retrieved: {subnet_id}"
+        msg = f"[+] Subnet retrieved: ({subnet_id})"
         print(msg)
         events[subnet_status] = msg
 
         return subnet_id, events
 
     except ClientError as e:
-        msg = f"[!] AWS ClientError: {e}"
+        msg = f"[!] AWS ClientError: ({e})"
         print(msg)
         events[subnet_status] = msg
 
     except BotoCoreError as e:
-        msg = f"[!] BotoCoreError: {e}"
+        msg = f"[!] BotoCoreError: ({e})"
         print(msg)
         events[subnet_status] = msg
 
@@ -91,19 +91,19 @@ def get_security_group(ec2_client, events):
 
         group_id = groups[0]["GroupId"]
 
-        msg = f"[+] Security group retrieved: {group_id}"
+        msg = f"[+] Security group retrieved: ({group_id})"
         print(msg)
         events[security_group_status] = msg
 
         return group_id, events
 
     except ClientError as e:
-        msg = f"[!] AWS ClientError: {e}"
+        msg = f"[!] AWS ClientError: ({e})"
         print(msg)
         events[security_group_status] = msg
 
     except BotoCoreError as e:
-        msg = f"[!] BotoCoreError: {e}"
+        msg = f"[!] BotoCoreError: ({e})"
         print(msg)
         events[security_group_status] = msg
 
