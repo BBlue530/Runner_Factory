@@ -1,4 +1,5 @@
 from botocore.exceptions import ClientError, BotoCoreError
+import os
 from runner_token import fetch_runner_token
 from variables import *
 
@@ -6,6 +7,13 @@ MACHINE_IMAGE = None
 
 def get_latest_machine_image(ec2_client, events):
     global MACHINE_IMAGE
+
+    ami = os.environ.get("AMI_MACHINE_IMAGE")
+    if ami:
+        msg = f"[+] Using preconfigured MACHINE_IMAGE. ({ami})"
+        print(msg)
+        events[machine_image_status] = msg
+        return ami, events
 
     try:
         if MACHINE_IMAGE is not None:
