@@ -27,6 +27,10 @@ def send_events_discord_webhook(events, secrets_client):
             get(ip_whitelist_status),
         ]), "inline": False},
 
+        {"name": "Runner Lock", "value": "\n".join([
+            get(lock_runner_status),
+        ]), "inline": False},
+
         {"name": "Secrets (HMAC / App / Key)", "value": "\n".join([
             get(hmac_secret_status),
             get(app_id_secret_status),

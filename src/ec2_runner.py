@@ -4,7 +4,7 @@ import time
 from botocore.exceptions import ClientError, BotoCoreError
 from variables import *
 
-def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_token, machine_image, subnet, security_group, events):
+def create_ec2_runner(ec2_client, github_repo_full_name, run_id, created_at, runner_token, machine_image, subnet, security_group, events):
     runner_bootstrap = textwrap.dedent(f"""#!/bin/bash
     set -euo pipefail
 
@@ -71,75 +71,68 @@ def create_ec2_runner(ec2_client, github_repo_full_name, parsed_body, runner_tok
     shutdown -h now
     """)
 
-    run_id = str(parsed_body["workflow_job"]["run_id"])
+    try:
 
-    runner = get_runner(ec2_client, run_id)
+        print(f"[+] Creating EC2 runner for run_id=({run_id})")
+        print(f"[+] AMI=({machine_image}), Subnet=({subnet}), SG=({security_group})")
 
-    if runner:
-        events[create_runner_status] = f"[i] Runner already exists. Run ID: ({run_id})"
-    else:
-        try:
+        response = ec2_client.run_instances(
+            MinCount=1,
+            MaxCount=1,
 
-            print(f"[+] Creating EC2 runner for run_id=({run_id})")
-            print(f"[+] AMI=({machine_image}), Subnet=({subnet}), SG=({security_group})")
+            InstanceType=os.environ.get("INSTANCE_TYPE"),
+            ImageId=machine_image,
+            SubnetId=subnet,
+            SecurityGroupIds=[security_group],
+            IamInstanceProfile={"Name": os.environ.get("RUNNER_ROLE")},
+            UserData=runner_bootstrap,
+            ClientToken=str(run_id),
+            InstanceInitiatedShutdownBehavior="terminate",
+            TagSpecifications=[{
+                "ResourceType": "instance",
+                "Tags": [
+                    {"Key": "Name", "Value": f"github-runner-{run_id}"},
+                    {"Key": "Role", "Value": os.environ.get("RUNNER_ROLE")},
+                    {"Key": "Repo", "Value": github_repo_full_name},
+                    {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
+                    {"Key": "RunID", "Value": run_id},
+                    {"Key": "CreatedAt", "Value": created_at},
+                    {"Key": "TTLSeconds", "Value": ttl_seconds}
+                ]
+            }]
+        )
 
-            response = ec2_client.run_instances(
-                MinCount=1,
-                MaxCount=1,
+        instance = response["Instances"][0]
+        instance_id = instance["InstanceId"]
+        private_ip = instance.get("PrivateIpAddress")
 
-                InstanceType=os.environ.get("INSTANCE_TYPE"),
-                ImageId=machine_image,
-                SubnetId=subnet,
-                SecurityGroupIds=[security_group],
-                IamInstanceProfile={"Name": os.environ.get("RUNNER_ROLE")},
-                UserData=runner_bootstrap,
-                ClientToken=str(run_id),
-                InstanceInitiatedShutdownBehavior="terminate",
-                TagSpecifications=[{
-                    "ResourceType": "instance",
-                    "Tags": [
-                        {"Key": "Name", "Value": f"github-runner-{run_id}"},
-                        {"Key": "Role", "Value": os.environ.get("RUNNER_ROLE")},
-                        {"Key": "Repo", "Value": github_repo_full_name},
-                        {"Key": "CreatedBy", "Value": "lambda-runner-factory"},
-                        {"Key": "RunID", "Value": str(run_id)},
-                        {"Key": "CreatedAt", "Value": str(int(time.time()))},
-                        {"Key": "TTLSeconds", "Value": "3600"}
-                    ]
-                }]
-            )
+        msg = f"[+] Runner created: ({instance_id}) IP: ({private_ip}). Run ID: ({run_id})"
+        print(msg)
+        events[create_runner_status] = msg
 
-            instance = response["Instances"][0]
-            instance_id = instance["InstanceId"]
-            private_ip = instance.get("PrivateIpAddress")
+        return events
 
-            msg = f"[+] Runner created: ({instance_id}) IP: ({private_ip}). Run ID: ({run_id})"
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code")
+
+        if error_code == "IdempotentParameterMismatch":
+            msg = f"[i] Idempotency conflict for run_id=({run_id}) (parameters differ)"
+            print(msg)
+            events[create_runner_status] = msg
+        else:
+            msg = f"[!] AWS ClientError ({error_code}): ({e}). Run ID: ({run_id})"
             print(msg)
             events[create_runner_status] = msg
 
-            return instance_id, events
+    except BotoCoreError as e:
+        msg = f"[!] BotoCoreError: ({e})"
+        print(msg)
+        events[create_runner_status] = msg
 
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code")
-
-            if error_code == "IdempotentParameterMismatch":
-                msg = f"[i] Idempotency conflict for run_id=({run_id}) (parameters differ)"
-                print(msg)
-                events[create_runner_status] = msg
-            else:
-                msg = f"[!] AWS ClientError ({error_code}): ({e}). Run ID: ({run_id})"
-                print(msg)
-                events[create_runner_status] = msg
-
-        except BotoCoreError as e:
-            msg = f"[!] BotoCoreError: ({e})"
-            print(msg)
-            events[create_runner_status] = msg
-
-        except KeyError as e:
-            msg = f"[!] Malformed response or payload: missing ({e}). Run ID: ({run_id})"
-            print(msg)
-            events[create_runner_status] = msg
+    except KeyError as e:
+        msg = f"[!] Malformed response or payload: missing ({e}). Run ID: ({run_id})"
+        print(msg)
+        events[create_runner_status] = msg
 
     return events
 
@@ -171,7 +164,7 @@ def purge_runners(ec2_client, events):
                     expiry = int(created_at) + int(ttl)
                 else:
                     launch_time = instance["LaunchTime"].timestamp()
-                    expiry = int(launch_time) + 3600
+                    expiry = int(launch_time) + int(ttl_seconds)
             except Exception:
                 print(f"[!] Bad tags on ({instance_id}), terminating as fallback")
                 instances_to_terminate.append(instance_id)
@@ -205,7 +198,7 @@ def get_runner(ec2_client, run_id):
     response = ec2_client.describe_instances(
         Filters=[
             {"Name": "tag:Role", "Values": [os.environ.get("RUNNER_ROLE")]},
-            {"Name": "tag:RunID", "Values": [str(run_id)]},
+            {"Name": "tag:RunID", "Values": [run_id]},
             {"Name": "instance-state-name", "Values": ["pending", "running"]}
         ]
     )

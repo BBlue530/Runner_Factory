@@ -2,15 +2,19 @@ import boto3
 import json
 import base64
 import os
+import time
 from ec2_config import get_ec2_config
 from ec2_runner import create_ec2_runner, purge_runners, get_active_runner_count
 from verify_signatures import verify_github_signature
 from discord_webhook import send_events_discord_webhook
 from ip_whitelist import verify_ip_whitelist
+from db_lock import db_lock_runner
+from ec2_runner import get_runner
 from variables import *
 
 ec2_client = boto3.client('ec2')
 secrets_client = boto3.client('secretsmanager')
+dynamodb_client = boto3.client("dynamodb")
 
 def lambda_handler(event, context):
     events = {}
@@ -81,11 +85,25 @@ def lambda_handler(event, context):
         events[runner_cap] = f"[+] Runner cap: ({current_runners}/{MAX_RUNNERS})"
         print(f"[+] Runner cap: ({current_runners}/{MAX_RUNNERS})")
         
-        githb_repo_full_name = parsed_body["repository"]["full_name"]
+        github_repo_full_name = parsed_body["repository"]["full_name"]
+        run_id = str(parsed_body["workflow_job"]["run_id"])
+        created_at = str(int(time.time()))
 
-        runner_token, machine_image, subnet, security_group, events = get_ec2_config(ec2_client, secrets_client, githb_repo_full_name, events)
+        runner = get_runner(ec2_client, run_id)
 
-        create_ec2_runner(ec2_client, githb_repo_full_name, parsed_body, runner_token, machine_image, subnet, security_group, events)
+        if runner:
+            events[create_runner_status] = f"[i] Runner already exists. Run ID: ({run_id})"
+        else:
+            lock_runner, lock_error = db_lock_runner(dynamodb_client, run_id, created_at)
+
+            if lock_runner:
+                events[lock_runner_status] = f"[+] Runner with run id: ({run_id}) is now locked"
+
+                runner_token, machine_image, subnet, security_group, events = get_ec2_config(ec2_client, secrets_client, github_repo_full_name, events)
+
+                events = create_ec2_runner(ec2_client, github_repo_full_name, run_id, created_at, runner_token, machine_image, subnet, security_group, events)
+            else:
+                events[lock_runner_status] = (f"[i] Runner with run id: ({run_id}) already locked ({lock_error})")
 
     finally:
         try:

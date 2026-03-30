@@ -1,3 +1,4 @@
+# Events topics
 signature_verified = "signature_verified"
 signature = "signature"
 
@@ -25,3 +26,8 @@ create_runner_status = "create_runner_status"
 
 client_ip_status = "client_ip_status"
 ip_whitelist_status = "ip_whitelist_status"
+
+lock_runner_status = "lock_runner_status"
+
+# Time to live
+ttl_seconds = "3600"
