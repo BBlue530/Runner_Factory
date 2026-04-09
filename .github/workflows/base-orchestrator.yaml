@@ -55,7 +55,6 @@ jobs:
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
     with:
       GHCR_IMAGE: "ghcr.io/bblue530/github_runner_orchestrator"
-      GHCR_IMAGE_TAG: "latest"
       ASSUME_ROLE: "github-runner-orchestrator-upload-ecr-oidc-role"
       AWS_REGION: "eu-north-1"
       ECR_IMAGE_NAME: "github_runner_orchestrator"

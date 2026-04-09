@@ -9,9 +9,6 @@ on:
       GHCR_IMAGE:
         required: true
         type: string
-      GHCR_IMAGE_TAG:
-        required: true
-        type: string
       ASSUME_ROLE:
         required: true
         type: string
@@ -43,9 +40,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set image tags
+        id: meta
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            echo "[+] Current tags: ${VERSION}, latest"
+            echo "tags=${VERSION},latest" >> $GITHUB_OUTPUT
+          else
+            echo "[+] Current tag: latest"
+            echo "tags=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Pull GHCR container image
         run: |
-          docker pull ${{ inputs.GHCR_IMAGE }}:${{ inputs.GHCR_IMAGE_TAG }}
+          TAGS="${{ steps.meta.outputs.tags }}"
+          PRIMARY_TAG=$(echo "$TAGS" | cut -d',' -f1)
+
+          docker pull ${{ inputs.GHCR_IMAGE }}:$PRIMARY_TAG
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -55,6 +67,10 @@ jobs:
 
       - name: Push image to ECR
         run: |
+          TAGS="${{ steps.meta.outputs.tags }}"
+          PRIMARY_TAG=$(echo "$TAGS" | cut -d',' -f1)
+          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+
           aws ecr describe-repositories --repository-names ${{ inputs.ECR_IMAGE_NAME }} || \
             aws ecr create-repository --repository-name ${{ inputs.ECR_IMAGE_NAME }}
 
@@ -63,7 +79,11 @@ jobs:
             --password $(aws ecr get-login-password --region ${{ inputs.AWS_REGION }}) \
             $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com
 
-          docker tag ${{ inputs.GHCR_IMAGE }}:${{ inputs.GHCR_IMAGE_TAG }} \
-            $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_IMAGE_NAME }}:${{ inputs.GHCR_IMAGE_TAG }}
+          for TAG in "${TAG_ARRAY[@]}"; do
+            echo "[+] Tagging and pushing: $TAG"
 
-          docker push $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_IMAGE_NAME }}:${{ inputs.GHCR_IMAGE_TAG }}
+            docker tag ${{ inputs.GHCR_IMAGE }}:$PRIMARY_TAG \
+              $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_IMAGE_NAME }}:$TAG
+
+            docker push $ACCOUNT_ID.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_IMAGE_NAME }}:$TAG
+          done
