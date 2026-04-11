@@ -5,7 +5,12 @@ RUN yum install -y git && \
 
 COPY src/ ${LAMBDA_TASK_ROOT}/
 
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+COPY wheelhouse /wheelhouse
+
+RUN pip install --upgrade pip && \
+    pip install \
+      --no-index \
+      --find-links=/wheelhouse \
+      --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
 CMD ["lambda_handler.lambda_handler"]

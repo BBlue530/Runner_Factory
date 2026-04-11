@@ -42,10 +42,15 @@ jobs:
     needs: check-changes
     if: ${{ needs.check-changes.outputs.github_runner_changed == 'true' }}
     uses: ./.github/workflows/docker-builder.yaml
+    secrets:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
     with:
       WORK_DIR: "./"
       IMAGE_NAME: "ghcr.io/bblue530/github_runner_orchestrator"
-      WILDCARD_COMMAND: ""
+      REQUIREMENTS_PATH: "./src/requirements.txt"
+      ASSUME_ROLE: "deps_reg_builder-oidc"
+      AWS_REGION: "eu-north-1"
 
   upload-ghcr-ecr:
     needs: trigger-docker-build-github-runner-image

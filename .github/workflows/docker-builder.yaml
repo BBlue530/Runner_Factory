@@ -2,6 +2,11 @@ name: Docker Build
 
 on:
   workflow_call:
+    secrets:
+      ACCOUNT_ID:
+        required: true
+      S3_BUCKET:
+        required: true
     inputs:
       WORK_DIR:
         required: true
@@ -9,7 +14,14 @@ on:
       IMAGE_NAME:
         required: true
         type: string
-      WILDCARD_COMMAND:
+      REQUIREMENTS_PATH:
+        required: true
+        type: string
+
+      ASSUME_ROLE:
+        required: true
+        type: string
+      AWS_REGION:
         required: true
         type: string
 
@@ -22,10 +34,11 @@ jobs:
   docker-build:
     runs-on: self-hosted
     env:
-      WORK_DIR: ${{ inputs.WORK_DIR }}
-      IMAGE_NAME: ${{ inputs.IMAGE_NAME }}
-      IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
-      WILDCARD_COMMAND: ${{ inputs.WILDCARD_COMMAND }}
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+      PIP_NO_CACHE_DIR: 1
+      PIP_PREFER_BINARY: 1
+      PIP_ONLY_BINARY: ":all:"
+      PIP_NO_WARN_SCRIPT_LOCATION: 1
 
     steps:
       - uses: actions/checkout@v3
@@ -52,10 +65,53 @@ jobs:
             echo "tags=latest" >> $GITHUB_OUTPUT
           fi
 
-      - name: Running wildcard command
-        working-directory: ${{ github.workspace }}
-        if: ${{ env.WILDCARD_COMMAND != '' }}
-        run: eval $WILDCARD_COMMAND
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ inputs.ASSUME_ROLE }}
+          aws-region: ${{ inputs.AWS_REGION }}
+
+      - name: Get Wheelhouse from S3 bucket
+        working-directory: ${{ inputs.WORK_DIR }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p wheelhouse
+
+          while read -r LINE || [ -n "$LINE" ]; do
+            PACKAGE="${LINE%%==*}"
+            VERSION="${LINE##*==}"
+
+            PACKAGE_LOWER=$(echo "$PACKAGE" | tr '[:upper:]' '[:lower:]')
+
+            echo "[~] Fetching $PACKAGE_LOWER==$VERSION"
+
+            S3_PATH="s3://${{ secrets.S3_BUCKET }}/python/${PACKAGE_LOWER}/${VERSION}/"
+
+            aws s3 cp "$S3_PATH" wheelhouse/ --recursive
+
+          done < "./src/requirements.txt"
+
+          echo "[+] Wheelhouse contents:"
+          ls -lah wheelhouse
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.7"
+
+      - name: Verify Wheelhouse from S3 bucket
+        working-directory: ${{ inputs.WORK_DIR }}
+        run: |
+          set -euo pipefail
+
+          python -m pip install --upgrade pip==24.0 setuptools==70.0 wheel
+
+          python -m pip install \
+            --no-index \
+            --only-binary=:all: \
+            --find-links=wheelhouse \
+            -r "${{ inputs.REQUIREMENTS_PATH }}"
 
       - name: Log in to GHCR
         uses: docker/login-action@v2
@@ -69,14 +125,14 @@ jobs:
 
       - name: Build Docker image
         working-directory: ${{ inputs.WORK_DIR }}
-        run: docker build -t "$IMAGE_NAME:build" .
+        run: docker build -t "${{ inputs.IMAGE_NAME }}:build" .
 
       - name: Tag Docker image
         run: |
           IFS=',' read -ra TAGS <<< "${{ steps.meta.outputs.tags }}"
           for TAG in "${TAGS[@]}"; do
-            docker tag "$IMAGE_NAME:build" "$IMAGE_NAME:$TAG"
+            docker tag "${{ inputs.IMAGE_NAME }}:build" "${{ inputs.IMAGE_NAME }}:$TAG"
           done
       
       - name: Push Docker image to GHCR
-        run: docker push --all-tags "$IMAGE_NAME"
+        run: docker push --all-tags "${{ inputs.IMAGE_NAME }}"
