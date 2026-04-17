@@ -11,7 +11,7 @@ permissions:
 jobs:
 
   check-changes:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest #self-hosted
     outputs:
       github_runner_changed: ${{ steps.check_github_runner.outputs.github_runner_changed }}
     steps:
@@ -47,7 +47,7 @@ jobs:
       S3_BUCKET: ${{ secrets.S3_BUCKET }}
     with:
       WORK_DIR: "./"
-      IMAGE_NAME: "ghcr.io/bblue530/github_runner_orchestrator"
+      IMAGE_NAME: "ghcr.io/bblue530/runner_factory"
       REQUIREMENTS_PATH: "./src/requirements.txt"
       ASSUME_ROLE: "deps_reg_builder-oidc"
       AWS_REGION: "eu-north-1"
@@ -59,7 +59,7 @@ jobs:
     secrets:
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
     with:
-      GHCR_IMAGE: "ghcr.io/bblue530/github_runner_orchestrator"
-      ASSUME_ROLE: "github-runner-orchestrator-upload-ecr-oidc-role"
+      GHCR_IMAGE: "ghcr.io/bblue530/runner_factory"
+      ASSUME_ROLE: "runner-factory-upload-ecr-oidc-role"
       AWS_REGION: "eu-north-1"
-      ECR_IMAGE_NAME: "github_runner_orchestrator"
+      ECR_IMAGE_NAME: "runner_factory"
