@@ -39,6 +39,7 @@ def send_events_discord_webhook(events, secrets_client):
 
         {"name": "Auth (JWT / Install / Runner)", "value": "\n".join([
             get(jwt_status),
+            get(inst_id_status),
             get(inst_token_status),
             get(runner_token_status),
         ]), "inline": False},

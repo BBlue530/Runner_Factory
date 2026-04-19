@@ -5,7 +5,6 @@ from variables import *
 
 APP_ID = None
 PRIV_KEY = None
-INST_ID = None
 HMAC = None
 DISCORD_WEBHOOK = None
 
@@ -58,20 +57,6 @@ def read_private_key_secret(secrets_client, events):
     print("[+] Calling secret manager for PRIV_KEY")
     PRIV_KEY, events = read_secret_from_secret_manager(secrets_client, github_private_key_secret_name, secret_name, priv_key_secret_status, events)
     return PRIV_KEY, events
-
-def read_installation_id_secret(secrets_client, events):
-    global INST_ID
-    secret_name = os.environ.get("SECRET_NAME")
-    github_inst_id_secret_name = os.environ.get("GITHUB_INST_ID_SECRET_NAME")
-
-    if INST_ID is not None:
-        print("[+] INST_ID already present")
-        events[inst_id_secret_status] = "[+] INST_ID already present"
-        return INST_ID, events
-    
-    print("[+] Calling secret manager for INST_ID")
-    INST_ID, events = read_secret_from_secret_manager(secrets_client, github_inst_id_secret_name, secret_name, inst_id_secret_status, events)
-    return INST_ID, events
 
 def read_hmac_secret(secrets_client, events):
     global HMAC

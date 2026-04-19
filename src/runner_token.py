@@ -1,7 +1,7 @@
 import requests
 import jwt
 import time
-from secret_manager import read_app_id_secret, read_private_key_secret, read_installation_id_secret
+from secret_manager import read_app_id_secret, read_private_key_secret
 from variables import *
 
 def create_jwt(app_id, priv_key, events):
@@ -53,6 +53,45 @@ def get_installation_token(jwt_token, installation_id, events):
 
     return None, events
 
+def get_installation_id(jwt_token, events):
+    url = "https://api.github.com/app/installations"
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    try:
+        r = requests.get(url, headers=headers)
+        r.raise_for_status()
+
+        installations = r.json()
+
+        if not installations:
+            msg = "[!] No installations found"
+            print(msg)
+            events[inst_id_status] = msg
+            return None, events
+
+        inst_id = installations[0]["id"]
+
+        print("[+] Installation id gotten")
+        events[inst_id_status] = "[+] Installation id gotten"
+
+        return inst_id, events
+
+    except requests.exceptions.HTTPError as e:
+        error_msg = f"[!] HTTP error: ({e}) Response: ({r.text})"
+        print(error_msg)
+        events[inst_id_status] = error_msg
+
+    except requests.exceptions.RequestException as e:
+        error_msg = f"[!] Request failed: ({e})"
+        print(error_msg)
+        events[inst_id_status] = error_msg
+
+    return None, events
+
 def get_runner_token(repo_full_name, installation_token, events):
     url = f"https://api.github.com/repos/{repo_full_name}/actions/runners/registration-token"
 
@@ -85,9 +124,9 @@ def get_runner_token(repo_full_name, installation_token, events):
 def fetch_runner_token(secrets_client, repo_full_name, events):
     app_id, events = read_app_id_secret(secrets_client, events)
     priv_key, events = read_private_key_secret(secrets_client, events)
-    inst_id, events = read_installation_id_secret(secrets_client, events)
 
     jwt_token, events = create_jwt(app_id, priv_key, events)
+    inst_id, events = get_installation_id(jwt_token, events)
     inst_token, events = get_installation_token(jwt_token, inst_id, events)
 
     runner_token, events = get_runner_token(repo_full_name, inst_token, events)
