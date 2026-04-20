@@ -6,7 +6,7 @@ import time
 from ec2_config import get_ec2_config
 from ec2_runner import create_ec2_runner, purge_runners, get_active_runner_count
 from verify_signatures import verify_github_signature
-from discord_webhook import send_events_discord_webhook
+from webhook import event_webhook
 from ip_whitelist import verify_ip_whitelist
 from db_lock import db_lock_runner
 from ec2_runner import get_runner
@@ -107,6 +107,6 @@ def lambda_handler(event, context):
 
     finally:
         try:
-            send_events_discord_webhook(events, secrets_client)
+            event_webhook(events, secrets_client)
         except Exception as webhook_error:
             print(f"[!] Failed to send Discord webhook: ({webhook_error})")

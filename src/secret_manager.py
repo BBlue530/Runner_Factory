@@ -6,7 +6,7 @@ from variables import *
 APP_ID = None
 PRIV_KEY = None
 HMAC = None
-DISCORD_WEBHOOK = None
+WEBHOOK = None
 
 def read_secret_from_secret_manager(secrets_client, secret_key_name, secret_name, secret_status, events):
     response = secrets_client.get_secret_value(SecretId=secret_name)
@@ -72,16 +72,16 @@ def read_hmac_secret(secrets_client, events):
     HMAC, events = read_secret_from_secret_manager(secrets_client, github_hmac_secret_name, secret_name, hmac_secret_status, events)
     return HMAC, events
 
-def read_discord_webhook_secret(secrets_client, events):
-    global DISCORD_WEBHOOK
+def read_webhook_secret(secrets_client, events):
+    global WEBHOOK
     secret_name = os.environ.get("SECRET_NAME")
-    discord_webhook_secret_name = os.environ.get("DISCORD_WEBHOOK_SECRET_NAME")
+    webhook_secret_name = os.environ.get("WEBHOOK_SECRET_NAME")
 
-    if DISCORD_WEBHOOK is not None:
-        print("[+] DISCORD_WEBHOOK already present")
-        events[discord_webhook_secret_status] = "[+] DISCORD_WEBHOOK already present"
-        return DISCORD_WEBHOOK, events
+    if WEBHOOK is not None:
+        print("[+] WEBHOOK already present")
+        events[webhook_secret_status] = "[+] WEBHOOK already present"
+        return WEBHOOK, events
     
-    print("[+] Calling secret manager for DISCORD_WEBHOOK")
-    DISCORD_WEBHOOK, events = read_secret_from_secret_manager(secrets_client, discord_webhook_secret_name, secret_name, discord_webhook_secret_status, events)
-    return DISCORD_WEBHOOK, events
+    print("[+] Calling secret manager for WEBHOOK")
+    WEBHOOK, events = read_secret_from_secret_manager(secrets_client, webhook_secret_name, secret_name, webhook_secret_status, events)
+    return WEBHOOK, events

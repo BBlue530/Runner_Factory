@@ -11,7 +11,7 @@ webhook_label = "webhook_label"
 hmac_secret_status = "hmac_secret_status"
 priv_key_secret_status = "priv_key_secret_status"
 app_id_secret_status = "app_id_secret_status"
-discord_webhook_secret_status = "discord_webhook_secret_status"
+webhook_secret_status = "webhook_secret_status"
 
 jwt_status = "jwt_status"
 inst_id_status = "inst_id_status"
